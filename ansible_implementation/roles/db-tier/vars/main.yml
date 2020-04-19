@@ -1,0 +1,11 @@
+---
+# vars file for roles/db-tier
+db_pkg:
+ - python-mysqldb 
+ - mysql-server 
+db_srv: mysql
+db:
+ user: redhat
+ database: wordpress
+ password: redhat
+ backupfile: userdb.backup

@@ -1,0 +1,84 @@
+---
+# tasks file for roles/db-tier
+- name: Install mysql
+  apt:
+   name: "{{ item  }}"
+   state: latest
+   update_cache: yes
+  with_items:
+   - "{{ db_pkg }}"
+
+- name: Update MySQL db user password 
+  mysql_user: 
+    name: "{{ db['user'] }}" 
+    host: "{{ item }}" 
+    password: "{{ db['password'] }}"
+    state: present
+    login_user: "{{ db['user'] }}" 
+    login_password: "{{ db['password'] }}"
+    check_implicit_admin: yes
+    priv: "*.*:ALL,GRANT"
+  with_items:
+    - "{{ ansible_hostname }}"
+    - 127.0.0.1
+    - ::1
+    - localhost
+    - '%'
+
+- name: Add wordpress database
+  mysql_db: 
+    name: "{{db['database']}}"
+    state: present
+
+- name: Ensure Anonymous user(s) are not in the database
+  mysql_user: 
+    name: '' 
+    host: "{{ item }}"
+    state: absent
+  with_items:
+    - localhost
+    - "{{ ansible_hostname }}"
+
+- name: Remove the test database
+  mysql_db: 
+    name: test 
+    state: absent
+
+- name: update mysql conf file 
+  lineinfile:
+    destfile: /etc/mysql/mysql.conf.d/mysqld.cnf              # For ansible version <= 2.3. 
+    regexp: "bind-address            = 127.0.0.1"
+    line:   "bind-address            = 0.0.0.0"
+
+- name: Start mysql db
+  service:
+   name: "{{ db_srv }}"
+   state: restarted
+
+- name: Enable ufw and allow everything
+  ufw:
+    state: "{{ item }}"
+    policy: allow  
+  with_items:
+    - reset
+    - enabled
+
+- name: Start firewall
+  service:
+    name: ufw
+    state: started
+    enabled: yes
+
+- name: Allow access for ansible control node
+  ufw:
+    rule: allow
+    from: '192.168.33.30'
+
+- name: Allow access to port 3306 for Apps
+  ufw:
+    rule: allow
+    port: '3306'
+    from: "{{ item }}"
+  with_items:
+      -     '192.168.33.32'
+      -     '192.168.33.33'

@@ -1,0 +1,67 @@
+---
+# tasks file for roles/lb-tier
+- name: Download Nginx signing key
+  get_url:
+    url: http://nginx.org/keys/nginx_signing.key
+    dest: /home/vagrant
+
+- name: Add key in apt-get repo
+  command: apt-key add nginx_signing.key
+
+- name: Add nginx to package
+  copy:
+    src: sources.list
+    dest: /etc/apt/sources.list
+
+- name: Update apt-get repo
+  apt:
+    update_cache: yes
+
+- name: Install nginx web server
+  apt:
+    state: present
+    name: nginx
+
+- name: Start nginx
+  service:
+    name: nginx
+    state: started
+
+- name: Check if file already exist
+  stat:
+    path: /etc/nginx/conf.d/default.conf
+  register: file_stats
+
+- name: Rename default nginx conf file
+  command: mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
+  when: file_stats.stat.exists
+
+- name: Copy nginx server file
+  copy:
+    src: server.conf
+    dest: /etc/nginx/conf.d/server.conf
+
+- name: Copy nginx http file
+  copy:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+
+- name: Create webserver root dir
+  become: false
+  file:
+    path: /home/vagrant/public_html
+    state: directory
+    owner: vagrant
+
+- name: Copy index file
+  become: false
+  copy:
+    src: index.html
+    dest: /home/vagrant/public_html/index.html
+
+- name: restart nginx
+  command: echo "Restart Nginx"
+  notify:
+    - restart nginx
+
+

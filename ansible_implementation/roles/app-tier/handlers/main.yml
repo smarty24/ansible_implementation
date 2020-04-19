@@ -1,0 +1,11 @@
+---
+# handlers file for roles/app-tier
+- name: restart apache2
+  service:
+    name: apache2
+    state: restarted
+
+- name: restart ufw
+  service:
+    name: ufw
+    state: restarted

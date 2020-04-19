@@ -1,0 +1,110 @@
+---
+- debug: var=ansible_all_ipv4_addresses[0]
+- debug: var=ansible_default_ipv4.address
+
+# tasks file for roles/app-tier
+- name: Allow everything and enable UFW
+  ufw:
+    state: "{{ item }}"
+    policy: allow
+  with_items:
+    - reset
+    - enabled
+
+- name: Start firewall
+  service:
+    name: ufw
+    state: started
+    enabled: yes
+
+- name: Allow access only to frontend to tcp port 80
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+    from: "192.168.33.31"
+
+- name: disallow direct access
+  ufw:
+    rule: deny
+    port: '80'
+    proto: tcp
+    to_ip: " {{ item }} "
+  with_items:
+    - "{{ ansible_all_ipv4_addresses[0] }}" #192.168.33.32
+    - "{{ ansible_all_ipv4_addresses[0] }}" #192.168.33.33
+
+- name: "Get software for apt repository management."
+  apt:
+    state: present
+    name:
+      - python-apt
+      - python-pycurl
+
+- name: Add ondrej repository for later versions of PHP.
+  apt_repository: repo='ppa:ondrej/php' update_cache=yes
+
+- name: Install Apache
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - git
+    - curl
+    - unzip
+    - sendmail
+    - apache2
+    - php7.1-common
+    - php7.1-cli
+    - php7.1-dev
+    - php7.1-gd
+    - php7.1-curl
+    - php7.1-json
+    - php7.1-opcache
+    - php7.1-xml
+    - php7.1-mbstring
+    - php7.1-pdo
+    - php7.1-mysql
+    - php-mysql
+    - php-apcu
+    - libpcre3-dev
+    - libapache2-mod-php7.1
+
+- name: Start Apache
+  service:
+    name: apache2
+    enabled: true
+    state: started
+
+# - name: Create Document Root
+#   file:
+#     path: /var/www/vhost/
+#     state: directory
+
+# - name: Copy text into index page
+#   template:
+#     src: index.html.j2
+#     dest: /var/www/html/index.html
+#   notify:
+#     - restart apache2
+#     - restart ufw
+
+- name: Change permission on /var/www/html
+  file:
+    path: "/var/www/"
+    owner: "www-data"
+    group: "www-data"
+    recurse: yes
+
+- name: Copy DB connection test file
+  template:
+    src: connect.php.j2
+    dest: /var/www/html/connect.php
+
+- name: restart services
+  service:
+    name: "{{ item }}"
+    state: restarted
+  with_items:
+    - apache2
+    - ufw
